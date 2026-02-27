@@ -2,64 +2,66 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<title>SHSAT Advanced CAT Engine</title>
+<title>SHSAT Advanced Adaptive Engine</title>
 
 <style>
-body {
-    margin:0;
-    font-family:Arial;
-    background:linear-gradient(135deg,#001f4d,#0b3d91);
-    color:white;
-    text-align:center;
+body{
+margin:0;
+font-family:Arial, sans-serif;
+background:linear-gradient(135deg,#001f4d,#0b3d91);
+color:white;
+text-align:center;
 }
 
-h1 { margin-top:20px; }
+h1{margin-top:20px;}
 
-#container {
-    max-width:900px;
-    margin:auto;
-    padding:20px;
+#container{
+max-width:900px;
+margin:auto;
+padding:20px;
 }
 
-#questionBox {
-    background:white;
-    color:#1f2d3d;
-    padding:30px;
-    border-radius:12px;
-    margin-top:20px;
-    text-align:left;
+#questionBox{
+background:white;
+color:#1f2d3d;
+padding:30px;
+border-radius:12px;
+margin-top:20px;
+text-align:left;
+min-height:180px;
 }
 
-.choice {
-    background:#e8f1ff;
-    padding:12px;
-    margin:10px 0;
-    border-radius:6px;
-    cursor:pointer;
+.choice{
+background:#e8f1ff;
+padding:12px;
+margin:10px 0;
+border-radius:6px;
+cursor:pointer;
 }
 
-.choice:hover { background:#cce0ff; }
-.correct { background:#c8f7c5 !important; }
-.incorrect { background:#ffcccc !important; }
+.choice:hover{background:#cce0ff;}
+.correct{background:#c8f7c5 !important;}
+.incorrect{background:#ffcccc !important;}
 
-#dashboard {
-    margin-top:20px;
-    background:#111;
-    padding:15px;
-    border-radius:8px;
+#dashboard{
+margin-top:20px;
+background:#111;
+padding:15px;
+border-radius:8px;
 }
 
-button {
-    padding:10px 20px;
-    margin-top:15px;
-    border:none;
-    background:#0057b7;
-    color:white;
-    border-radius:6px;
-    cursor:pointer;
+button{
+padding:10px 20px;
+margin-top:15px;
+border:none;
+background:#0057b7;
+color:white;
+border-radius:6px;
+cursor:pointer;
 }
 </style>
 </head>
+
 <body>
 
 <h1>📘 SHSAT Reading – Advanced CAT Mode</h1>
@@ -72,7 +74,7 @@ button {
 <div id="choices"></div>
 </div>
 
-<button onclick="nextQuestion()">Next Question</button>
+<button id="nextBtn">Next Question</button>
 
 <div id="dashboard">
 Ability (θ): <span id="thetaDisplay">0.00</span><br>
@@ -84,14 +86,25 @@ Questions Answered: <span id="qCount">0</span>
 
 <script>
 
-let theta = 0;         // ability estimate
-let standardError = 1; // confidence measure
+/* ======================
+   GLOBAL STATE
+====================== */
+
+let theta = 0;                 // ability estimate
+let standardError = 1;         // confidence
 let questionCount = 0;
-let maxQuestions = 12;
+let maxQuestions = 10;
 let learningRate = 0.4;
-let asked = [];
+let askedQuestions = [];
+let resultsLog = [];
+let currentQuestion = null;
+
+/* ======================
+   QUESTION BANK
+====================== */
 
 const questionBank = [
+
 {
 skill:"Main Idea",
 a:1.2,
@@ -100,6 +113,7 @@ question:"The passage lists several benefits of exercise. What is the main idea?
 choices:["Exercise is difficult","Exercise has many benefits","Exercise is boring","Exercise is optional"],
 correct:1
 },
+
 {
 skill:"Evidence",
 a:1.5,
@@ -108,6 +122,7 @@ question:"Which detail best supports the claim about sleep improving memory?",
 choices:["Students like sleep","Studies show improved recall","Sleep feels relaxing","Schools start early"],
 correct:1
 },
+
 {
 skill:"Main Idea",
 a:1.8,
@@ -116,11 +131,12 @@ question:"The author evaluates economic tradeoffs and environmental risk. What i
 choices:["Growth is best","Balance requires tradeoffs","Environment irrelevant","Policies fail"],
 correct:1
 },
+
 {
 skill:"Evidence",
 a:2.0,
 b:2,
-question:"Which quotation most strongly supports the policy's long-term impact?",
+question:"Which quotation most strongly supports long-term impact?",
 choices:[
 "Policy matters",
 "Data shows 30% reduction over 10 years",
@@ -129,55 +145,87 @@ choices:[
 ],
 correct:1
 }
+
 ];
+
+/* ======================
+   IRT FUNCTIONS
+====================== */
 
 function logistic(theta, a, b){
 return 1 / (1 + Math.exp(-a * (theta - b)));
 }
 
 function updateTheta(response, a, b){
-let p = logistic(theta, a, b);
-let gradient = a * (response - p);
+let probability = logistic(theta, a, b);
+let gradient = a * (response - probability);
 theta += learningRate * gradient;
-standardError = Math.max(0.2, 1 / Math.sqrt(questionCount+1));
+standardError = Math.max(0.2, 1 / Math.sqrt(questionCount + 1));
 }
+
+/* ======================
+   QUESTION SELECTION
+====================== */
 
 function selectQuestion(){
-let sorted = questionBank
-.filter(q => !asked.includes(q))
-.sort((a,b)=>Math.abs(a.b - theta) - Math.abs(b.b - theta));
 
-return sorted[0];
+let remaining = questionBank.filter(q => !askedQuestions.includes(q));
+
+if(remaining.length === 0){
+return null;
 }
+
+remaining.sort((q1,q2)=>{
+return Math.abs(q1.b - theta) - Math.abs(q2.b - theta);
+});
+
+return remaining[0];
+}
+
+/* ======================
+   LOAD QUESTION
+====================== */
 
 function loadQuestion(){
 
 if(questionCount >= maxQuestions){
-document.getElementById("questionBox").innerHTML =
-"<h2>Assessment Complete</h2><p>Final Ability Estimate: "+theta.toFixed(2)+"</p>";
+endAssessment();
 return;
 }
 
 let q = selectQuestion();
+
+if(!q){
+endAssessment();
+return;
+}
+
 currentQuestion = q;
-asked.push(q);
+askedQuestions.push(q);
 
 document.getElementById("skillLabel").innerText =
-"Skill: "+q.skill+" | Difficulty (b): "+q.b;
+"Skill: " + q.skill + " | Difficulty (b): " + q.b;
 
 document.getElementById("questionText").innerText = q.question;
 
 let choicesDiv = document.getElementById("choices");
-choicesDiv.innerHTML="";
+choicesDiv.innerHTML = "";
 
 q.choices.forEach((choice,index)=>{
-let div=document.createElement("div");
-div.className="choice";
-div.innerText=choice;
 
-div.onclick=()=>{
+let div = document.createElement("div");
+div.className = "choice";
+div.innerText = choice;
+
+div.onclick = function(){
+
+if(div.classList.contains("correct") || div.classList.contains("incorrect")){
+return;
+}
+
 questionCount++;
-let correct = (index===q.correct)?1:0;
+
+let correct = (index === q.correct) ? 1 : 0;
 
 if(correct){
 div.classList.add("correct");
@@ -186,12 +234,25 @@ div.classList.add("incorrect");
 }
 
 updateTheta(correct, q.a, q.b);
+
+resultsLog.push({
+skill:q.skill,
+difficulty:q.b,
+correct:correct
+});
+
 updateDashboard();
 };
 
 choicesDiv.appendChild(div);
+
 });
+
 }
+
+/* ======================
+   DASHBOARD UPDATE
+====================== */
 
 function updateDashboard(){
 document.getElementById("thetaDisplay").innerText = theta.toFixed(2);
@@ -199,10 +260,62 @@ document.getElementById("seDisplay").innerText = standardError.toFixed(2);
 document.getElementById("qCount").innerText = questionCount;
 }
 
-function nextQuestion(){
-loadQuestion();
+/* ======================
+   END TEST
+====================== */
+
+function endAssessment(){
+
+let correctCount = resultsLog.filter(r=>r.correct===1).length;
+let accuracy = resultsLog.length ? 
+Math.round((correctCount/resultsLog.length)*100) : 0;
+
+document.getElementById("questionBox").innerHTML =
+"<h2>Assessment Complete</h2>" +
+"<p>Final Ability (θ): " + theta.toFixed(2) + "</p>" +
+"<p>Standard Error: " + standardError.toFixed(2) + "</p>" +
+"<p>Accuracy: " + accuracy + "%</p>" +
+"<button onclick='downloadResults()'>📥 Download My Results</button>";
+
 }
 
+/* ======================
+   CSV EXPORT
+====================== */
+
+function downloadResults(){
+
+let csv = "SHSAT Adaptive Assessment Results\n";
+csv += "Final Ability (Theta)," + theta.toFixed(2) + "\n";
+csv += "Standard Error," + standardError.toFixed(2) + "\n";
+csv += "Total Questions," + resultsLog.length + "\n\n";
+csv += "Skill,Difficulty,Correct\n";
+
+resultsLog.forEach(r=>{
+csv += r.skill + "," + r.difficulty + "," + (r.correct?"Yes":"No") + "\n";
+});
+
+let blob = new Blob([csv], { type: "text/csv" });
+let url = URL.createObjectURL(blob);
+
+let a = document.createElement("a");
+a.href = url;
+a.download = "SHSAT_Adaptive_Results.csv";
+document.body.appendChild(a);
+a.click();
+document.body.removeChild(a);
+
+URL.revokeObjectURL(url);
+
+}
+
+/* ======================
+   BUTTON EVENT
+====================== */
+
+document.getElementById("nextBtn").addEventListener("click", loadQuestion);
+
+/* START */
 loadQuestion();
 
 </script>
