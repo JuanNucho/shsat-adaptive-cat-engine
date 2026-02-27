@@ -2,7 +2,7 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<title>SHSAT Advanced Adaptive Engine</title>
+<title>SHSAT Adaptive AI Simulation</title>
 
 <style>
 body{
@@ -16,14 +16,9 @@ align-items:center;
 height:100vh;
 }
 
-#app{
-width:700px;
-}
+#app{width:720px;}
 
-h1{
-text-align:center;
-margin-bottom:20px;
-}
+h1{text-align:center;margin-bottom:20px;}
 
 #card{
 background:white;
@@ -31,7 +26,8 @@ color:#1f2d3d;
 padding:30px;
 border-radius:12px;
 box-shadow:0 8px 25px rgba(0,0,0,.3);
-min-height:220px;
+min-height:260px;
+transition:opacity .3s;
 }
 
 .choice{
@@ -44,14 +40,10 @@ transition:.2s;
 }
 
 .choice:hover{background:#cce0ff;}
-
 .correct{background:#c8f7c5 !important;}
 .incorrect{background:#ffcccc !important;}
 
-#controls{
-text-align:center;
-margin-top:15px;
-}
+#controls{text-align:center;margin-top:15px;}
 
 button{
 padding:10px 20px;
@@ -71,12 +63,11 @@ font-size:14px;
 }
 </style>
 </head>
-
 <body>
 
 <div id="app">
 
-<h1>📘 SHSAT Reading – Advanced CAT</h1>
+<h1>📘 SHSAT Reading – AI Simulated CAT</h1>
 
 <div id="card">
 <h3 id="skillLabel"></h3>
@@ -90,7 +81,7 @@ font-size:14px;
 
 <div id="dashboard">
 Ability (θ): <span id="thetaDisplay">0.00</span> |
-Standard Error: <span id="seDisplay">1.00</span> |
+SE: <span id="seDisplay">1.00</span> |
 Questions: <span id="qCount">0</span>
 </div>
 
@@ -98,72 +89,124 @@ Questions: <span id="qCount">0</span>
 
 <script>
 
+// =========================
+// ADAPTIVE VARIABLES
+// =========================
+
 let theta = 0;
 let standardError = 1;
 let questionCount = 0;
-let maxQuestions = 10;
+let maxQuestions = 25;
 let learningRate = 0.4;
-let askedQuestions = [];
 let resultsLog = [];
 let currentQuestion = null;
 
-const questionBank = [
-{
-skill:"Main Idea",
-a:1.2,
-b:-1,
-question:"The passage lists several benefits of exercise. What is the main idea?",
-choices:["Exercise is difficult","Exercise has many benefits","Exercise is boring","Exercise is optional"],
-correct:1
-},
-{
-skill:"Evidence",
-a:1.5,
-b:0,
-question:"Which detail best supports the claim about sleep improving memory?",
-choices:["Students like sleep","Studies show improved recall","Sleep feels relaxing","Schools start early"],
-correct:1
-},
-{
-skill:"Main Idea",
-a:1.8,
-b:1,
-question:"The author evaluates economic tradeoffs and environmental risk. What is the central argument?",
-choices:["Growth is best","Balance requires tradeoffs","Environment irrelevant","Policies fail"],
-correct:1
-},
-{
-skill:"Evidence",
-a:2.0,
-b:2,
-question:"Which quotation most strongly supports long-term impact?",
-choices:[
-"Policy matters",
-"Data shows 30% reduction over 10 years",
-"People support policy",
-"Climate change is real"
-],
-correct:1
-}
+// =========================
+// AI TOPIC POOL
+// =========================
+
+const topics = [
+"urban gardening","renewable energy","school technology",
+"community volunteering","sleep science","climate change",
+"nutrition","reading fiction","public transportation",
+"social media","space exploration","recycling",
+"local businesses","wildlife conservation","mental health"
 ];
+
+const skills = ["Main Idea","Evidence","Trap Detection","Author Purpose"];
+
+// =========================
+// IRT LOGISTIC MODEL
+// =========================
 
 function logistic(theta,a,b){
 return 1/(1+Math.exp(-a*(theta-b)));
 }
 
 function updateTheta(response,a,b){
-let p=logistic(theta,a,b);
-let gradient=a*(response-p);
-theta+=learningRate*gradient;
-standardError=Math.max(.2,1/Math.sqrt(questionCount+1));
+let p = logistic(theta,a,b);
+let gradient = a*(response-p);
+theta += learningRate * gradient;
+standardError = Math.max(.2,1/Math.sqrt(questionCount+1));
 }
 
-function selectQuestion(){
-let remaining=questionBank.filter(q=>!askedQuestions.includes(q));
-if(remaining.length===0)return null;
-remaining.sort((q1,q2)=>Math.abs(q1.b-theta)-Math.abs(q2.b-theta));
-return remaining[0];
+// =========================
+// SIMULATED AI GENERATOR
+// =========================
+
+function generateQuestion(){
+
+let skill = skills[Math.floor(Math.random()*skills.length)];
+let topic = topics[Math.floor(Math.random()*topics.length)];
+
+let difficulty = Math.round(theta);
+
+let a = 1.4 + Math.random()*.6;
+let b = difficulty + (Math.random()-.5);
+
+let questionText="";
+let correct="";
+let distractors=[];
+
+if(skill==="Main Idea"){
+questionText=`The passage discusses ${topic} and explains its benefits and challenges. What is the main idea?`;
+correct=`${topic} has both benefits and challenges.`;
+distractors=[
+`${topic} is always beneficial.`,
+`${topic} has no impact.`,
+`${topic} should be banned immediately.`
+];
 }
+
+if(skill==="Evidence"){
+questionText=`Which detail best supports the claim about ${topic}?`;
+correct=`A study showing measurable results related to ${topic}.`;
+distractors=[
+`An opinion about ${topic}.`,
+`A vague statement mentioning ${topic}.`,
+`A general comment unrelated to data.`
+];
+}
+
+if(skill==="Trap Detection"){
+questionText=`Which answer contains extreme language about ${topic}?`;
+correct=`${topic} always solves every problem.`;
+distractors=[
+`${topic} sometimes helps.`,
+`${topic} may provide benefits.`,
+`${topic} often improves situations.`
+];
+}
+
+if(skill==="Author Purpose"){
+questionText=`Why does the author write about ${topic}?`;
+correct=`To inform readers about key aspects of ${topic}.`;
+distractors=[
+`To confuse readers.`,
+`To entertain with fiction.`,
+`To criticize unrelated topics.`
+];
+}
+
+// shuffle answers
+let answers=[correct,...distractors];
+answers.sort(()=>Math.random()-.5);
+let correctIndex = answers.indexOf(correct);
+
+return{
+skill,
+questionText,
+choices:answers,
+correct:correctIndex,
+a,
+b
+};
+
+}
+
+// =========================
+// LOAD QUESTION
+// =========================
 
 function loadQuestion(){
 
@@ -172,21 +215,18 @@ endAssessment();
 return;
 }
 
-let q=selectQuestion();
-if(!q){endAssessment();return;}
+currentQuestion = generateQuestion();
 
-currentQuestion=q;
-askedQuestions.push(q);
+document.getElementById("skillLabel").innerText =
+"Skill: "+currentQuestion.skill;
 
-document.getElementById("skillLabel").innerText=
-"Skill: "+q.skill+" | Difficulty: "+q.b;
-
-document.getElementById("questionText").innerText=q.question;
+document.getElementById("questionText").innerText =
+currentQuestion.questionText;
 
 let choicesDiv=document.getElementById("choices");
 choicesDiv.innerHTML="";
 
-q.choices.forEach((choice,index)=>{
+currentQuestion.choices.forEach((choice,index)=>{
 
 let div=document.createElement("div");
 div.className="choice";
@@ -198,7 +238,7 @@ if(div.classList.contains("correct")||div.classList.contains("incorrect"))return
 
 questionCount++;
 
-let correct=(index===q.correct)?1:0;
+let correct=(index===currentQuestion.correct)?1:0;
 
 if(correct){
 div.classList.add("correct");
@@ -206,11 +246,10 @@ div.classList.add("correct");
 div.classList.add("incorrect");
 }
 
-updateTheta(correct,q.a,q.b);
+updateTheta(correct,currentQuestion.a,currentQuestion.b);
 
 resultsLog.push({
-skill:q.skill,
-difficulty:q.b,
+skill:currentQuestion.skill,
 correct:correct
 });
 
@@ -230,15 +269,14 @@ document.getElementById("qCount").innerText=questionCount;
 function endAssessment(){
 
 let correctCount=resultsLog.filter(r=>r.correct===1).length;
-let accuracy=resultsLog.length?
-Math.round((correctCount/resultsLog.length)*100):0;
+let accuracy=Math.round((correctCount/resultsLog.length)*100);
 
 document.getElementById("card").innerHTML=
 "<h2>Assessment Complete</h2>"+
 "<p>Final Ability (θ): "+theta.toFixed(2)+"</p>"+
 "<p>Standard Error: "+standardError.toFixed(2)+"</p>"+
 "<p>Accuracy: "+accuracy+"%</p>"+
-"<button onclick='downloadResults()'>📥 Download Results</button>";
+"<button onclick='downloadResults()'>Download Results</button>";
 }
 
 function downloadResults(){
@@ -247,17 +285,17 @@ let csv="SHSAT Adaptive Results\n";
 csv+="Final Ability,"+theta.toFixed(2)+"\n";
 csv+="Standard Error,"+standardError.toFixed(2)+"\n";
 csv+="Total Questions,"+resultsLog.length+"\n\n";
-csv+="Skill,Difficulty,Correct\n";
+csv+="Skill,Correct\n";
 
 resultsLog.forEach(r=>{
-csv+=r.skill+","+r.difficulty+","+(r.correct?"Yes":"No")+"\n";
+csv+=r.skill+","+(r.correct?"Yes":"No")+"\n";
 });
 
 let blob=new Blob([csv],{type:"text/csv"});
 let url=URL.createObjectURL(blob);
 let a=document.createElement("a");
 a.href=url;
-a.download="SHSAT_Adaptive_Results.csv";
+a.download="SHSAT_AI_Simulated_Results.csv";
 document.body.appendChild(a);
 a.click();
 document.body.removeChild(a);
@@ -269,6 +307,5 @@ document.getElementById("nextBtn").addEventListener("click",loadQuestion);
 loadQuestion();
 
 </script>
-
 </body>
-</html>
+</html>>
