@@ -1,12 +1,95 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>SHSAT Advanced CAT Engine</title>
+
+<style>
+body {
+    margin:0;
+    font-family:Arial;
+    background:linear-gradient(135deg,#001f4d,#0b3d91);
+    color:white;
+    text-align:center;
+}
+
+h1 { margin-top:20px; }
+
+#container {
+    max-width:900px;
+    margin:auto;
+    padding:20px;
+}
+
+#questionBox {
+    background:white;
+    color:#1f2d3d;
+    padding:30px;
+    border-radius:12px;
+    margin-top:20px;
+    text-align:left;
+}
+
+.choice {
+    background:#e8f1ff;
+    padding:12px;
+    margin:10px 0;
+    border-radius:6px;
+    cursor:pointer;
+}
+
+.choice:hover { background:#cce0ff; }
+.correct { background:#c8f7c5 !important; }
+.incorrect { background:#ffcccc !important; }
+
+#dashboard {
+    margin-top:20px;
+    background:#111;
+    padding:15px;
+    border-radius:8px;
+}
+
+button {
+    padding:10px 20px;
+    margin-top:15px;
+    border:none;
+    background:#0057b7;
+    color:white;
+    border-radius:6px;
+    cursor:pointer;
+}
+</style>
+</head>
+<body>
+
+<h1>📘 SHSAT Reading – Advanced CAT Mode</h1>
+
+<div id="container">
+
+<div id="questionBox">
+<h3 id="skillLabel"></h3>
+<p id="questionText"></p>
+<div id="choices"></div>
+</div>
+
+<button onclick="nextQuestion()">Next Question</button>
+
+<div id="dashboard">
+Ability (θ): <span id="thetaDisplay">0.00</span><br>
+Standard Error: <span id="seDisplay">1.00</span><br>
+Questions Answered: <span id="qCount">0</span>
+</div>
+
+</div>
+
 <script>
 
-let theta = 0;
-let standardError = 1;
+let theta = 0;         // ability estimate
+let standardError = 1; // confidence measure
 let questionCount = 0;
-let maxQuestions = 10;
+let maxQuestions = 12;
 let learningRate = 0.4;
 let asked = [];
-let resultsLog = [];
 
 const questionBank = [
 {
@@ -37,7 +120,7 @@ correct:1
 skill:"Evidence",
 a:2.0,
 b:2,
-question:"Which quotation most strongly supports long-term impact?",
+question:"Which quotation most strongly supports the policy's long-term impact?",
 choices:[
 "Policy matters",
 "Data shows 30% reduction over 10 years",
@@ -63,13 +146,15 @@ function selectQuestion(){
 let sorted = questionBank
 .filter(q => !asked.includes(q))
 .sort((a,b)=>Math.abs(a.b - theta) - Math.abs(b.b - theta));
+
 return sorted[0];
 }
 
 function loadQuestion(){
 
 if(questionCount >= maxQuestions){
-endAssessment();
+document.getElementById("questionBox").innerHTML =
+"<h2>Assessment Complete</h2><p>Final Ability Estimate: "+theta.toFixed(2)+"</p>";
 return;
 }
 
@@ -101,13 +186,6 @@ div.classList.add("incorrect");
 }
 
 updateTheta(correct, q.a, q.b);
-
-resultsLog.push({
-skill: q.skill,
-difficulty: q.b,
-response: correct
-});
-
 updateDashboard();
 };
 
@@ -125,53 +203,9 @@ function nextQuestion(){
 loadQuestion();
 }
 
-function endAssessment(){
-
-let accuracy = Math.round(
-(resultsLog.filter(r=>r.response===1).length / resultsLog.length)*100
-);
-
-document.getElementById("questionBox").innerHTML =
-"<h2>Assessment Complete</h2>" +
-"<p>Final Ability Estimate: "+theta.toFixed(2)+"</p>" +
-"<p>Standard Error: "+standardError.toFixed(2)+"</p>" +
-"<p>Accuracy: "+accuracy+"%</p>" +
-"<button onclick='downloadResults()'>📥 Download My Results</button>";
-}
-
-function downloadResults(){
-
-let date = new Date().toLocaleString();
-
-let csv = "SHSAT Adaptive Assessment Results\n";
-csv += "Date,"+date+"\n";
-csv += "Final Ability (Theta),"+theta.toFixed(2)+"\n";
-csv += "Standard Error,"+standardError.toFixed(2)+"\n";
-csv += "Total Questions,"+resultsLog.length+"\n";
-
-let correctCount = resultsLog.filter(r=>r.response===1).length;
-csv += "Overall Accuracy,"+
-Math.round((correctCount/resultsLog.length)*100)+"%\n\n";
-
-csv += "Question Log\n";
-csv += "Skill,Difficulty,Correct\n";
-
-resultsLog.forEach(r=>{
-csv += r.skill+","+r.difficulty+","+
-(r.response===1?"Yes":"No")+"\n";
-});
-
-let blob = new Blob([csv], { type: "text/csv" });
-let url = URL.createObjectURL(blob);
-
-let a = document.createElement("a");
-a.href = url;
-a.download = "SHSAT_Adaptive_Results.csv";
-a.click();
-
-URL.revokeObjectURL(url);
-}
-
 loadQuestion();
 
 </script>
+
+</body>
+</html>
