@@ -10,25 +10,28 @@ margin:0;
 font-family:Arial, sans-serif;
 background:linear-gradient(135deg,#001f4d,#0b3d91);
 color:white;
+display:flex;
+justify-content:center;
+align-items:center;
+height:100vh;
+}
+
+#app{
+width:700px;
+}
+
+h1{
 text-align:center;
+margin-bottom:20px;
 }
 
-h1{margin-top:20px;}
-
-#container{
-max-width:900px;
-margin:auto;
-padding:20px;
-}
-
-#questionBox{
+#card{
 background:white;
 color:#1f2d3d;
 padding:30px;
 border-radius:12px;
-margin-top:20px;
-text-align:left;
-min-height:180px;
+box-shadow:0 8px 25px rgba(0,0,0,.3);
+min-height:220px;
 }
 
 .choice{
@@ -37,61 +40,66 @@ padding:12px;
 margin:10px 0;
 border-radius:6px;
 cursor:pointer;
+transition:.2s;
 }
 
 .choice:hover{background:#cce0ff;}
+
 .correct{background:#c8f7c5 !important;}
 .incorrect{background:#ffcccc !important;}
 
-#dashboard{
-margin-top:20px;
-background:#111;
-padding:15px;
-border-radius:8px;
+#controls{
+text-align:center;
+margin-top:15px;
 }
 
 button{
 padding:10px 20px;
-margin-top:15px;
 border:none;
 background:#0057b7;
 color:white;
 border-radius:6px;
 cursor:pointer;
 }
+
+#dashboard{
+margin-top:20px;
+background:#111;
+padding:15px;
+border-radius:8px;
+font-size:14px;
+}
 </style>
 </head>
 
 <body>
 
-<h1>📘 SHSAT Reading – Advanced CAT Mode</h1>
+<div id="app">
 
-<div id="container">
+<h1>📘 SHSAT Reading – Advanced CAT</h1>
 
-<div id="questionBox">
+<div id="card">
 <h3 id="skillLabel"></h3>
 <p id="questionText"></p>
 <div id="choices"></div>
 </div>
 
+<div id="controls">
 <button id="nextBtn">Next Question</button>
+</div>
 
 <div id="dashboard">
-Ability (θ): <span id="thetaDisplay">0.00</span><br>
-Standard Error: <span id="seDisplay">1.00</span><br>
-Questions Answered: <span id="qCount">0</span>
+Ability (θ): <span id="thetaDisplay">0.00</span> |
+Standard Error: <span id="seDisplay">1.00</span> |
+Questions: <span id="qCount">0</span>
 </div>
 
 </div>
 
 <script>
 
-/* ======================
-   GLOBAL STATE
-====================== */
-
-let theta = 0;                 // ability estimate
-let standardError = 1;         // confidence
+let theta = 0;
+let standardError = 1;
 let questionCount = 0;
 let maxQuestions = 10;
 let learningRate = 0.4;
@@ -99,12 +107,7 @@ let askedQuestions = [];
 let resultsLog = [];
 let currentQuestion = null;
 
-/* ======================
-   QUESTION BANK
-====================== */
-
 const questionBank = [
-
 {
 skill:"Main Idea",
 a:1.2,
@@ -113,7 +116,6 @@ question:"The passage lists several benefits of exercise. What is the main idea?
 choices:["Exercise is difficult","Exercise has many benefits","Exercise is boring","Exercise is optional"],
 correct:1
 },
-
 {
 skill:"Evidence",
 a:1.5,
@@ -122,7 +124,6 @@ question:"Which detail best supports the claim about sleep improving memory?",
 choices:["Students like sleep","Studies show improved recall","Sleep feels relaxing","Schools start early"],
 correct:1
 },
-
 {
 skill:"Main Idea",
 a:1.8,
@@ -131,7 +132,6 @@ question:"The author evaluates economic tradeoffs and environmental risk. What i
 choices:["Growth is best","Balance requires tradeoffs","Environment irrelevant","Policies fail"],
 correct:1
 },
-
 {
 skill:"Evidence",
 a:2.0,
@@ -145,87 +145,60 @@ choices:[
 ],
 correct:1
 }
-
 ];
 
-/* ======================
-   IRT FUNCTIONS
-====================== */
-
-function logistic(theta, a, b){
-return 1 / (1 + Math.exp(-a * (theta - b)));
+function logistic(theta,a,b){
+return 1/(1+Math.exp(-a*(theta-b)));
 }
 
-function updateTheta(response, a, b){
-let probability = logistic(theta, a, b);
-let gradient = a * (response - probability);
-theta += learningRate * gradient;
-standardError = Math.max(0.2, 1 / Math.sqrt(questionCount + 1));
+function updateTheta(response,a,b){
+let p=logistic(theta,a,b);
+let gradient=a*(response-p);
+theta+=learningRate*gradient;
+standardError=Math.max(.2,1/Math.sqrt(questionCount+1));
 }
-
-/* ======================
-   QUESTION SELECTION
-====================== */
 
 function selectQuestion(){
-
-let remaining = questionBank.filter(q => !askedQuestions.includes(q));
-
-if(remaining.length === 0){
-return null;
-}
-
-remaining.sort((q1,q2)=>{
-return Math.abs(q1.b - theta) - Math.abs(q2.b - theta);
-});
-
+let remaining=questionBank.filter(q=>!askedQuestions.includes(q));
+if(remaining.length===0)return null;
+remaining.sort((q1,q2)=>Math.abs(q1.b-theta)-Math.abs(q2.b-theta));
 return remaining[0];
 }
 
-/* ======================
-   LOAD QUESTION
-====================== */
-
 function loadQuestion(){
 
-if(questionCount >= maxQuestions){
+if(questionCount>=maxQuestions){
 endAssessment();
 return;
 }
 
-let q = selectQuestion();
+let q=selectQuestion();
+if(!q){endAssessment();return;}
 
-if(!q){
-endAssessment();
-return;
-}
-
-currentQuestion = q;
+currentQuestion=q;
 askedQuestions.push(q);
 
-document.getElementById("skillLabel").innerText =
-"Skill: " + q.skill + " | Difficulty (b): " + q.b;
+document.getElementById("skillLabel").innerText=
+"Skill: "+q.skill+" | Difficulty: "+q.b;
 
-document.getElementById("questionText").innerText = q.question;
+document.getElementById("questionText").innerText=q.question;
 
-let choicesDiv = document.getElementById("choices");
-choicesDiv.innerHTML = "";
+let choicesDiv=document.getElementById("choices");
+choicesDiv.innerHTML="";
 
 q.choices.forEach((choice,index)=>{
 
-let div = document.createElement("div");
-div.className = "choice";
-div.innerText = choice;
+let div=document.createElement("div");
+div.className="choice";
+div.innerText=choice;
 
-div.onclick = function(){
+div.onclick=function(){
 
-if(div.classList.contains("correct") || div.classList.contains("incorrect")){
-return;
-}
+if(div.classList.contains("correct")||div.classList.contains("incorrect"))return;
 
 questionCount++;
 
-let correct = (index === q.correct) ? 1 : 0;
+let correct=(index===q.correct)?1:0;
 
 if(correct){
 div.classList.add("correct");
@@ -233,7 +206,7 @@ div.classList.add("correct");
 div.classList.add("incorrect");
 }
 
-updateTheta(correct, q.a, q.b);
+updateTheta(correct,q.a,q.b);
 
 resultsLog.push({
 skill:q.skill,
@@ -245,77 +218,54 @@ updateDashboard();
 };
 
 choicesDiv.appendChild(div);
-
 });
-
 }
-
-/* ======================
-   DASHBOARD UPDATE
-====================== */
 
 function updateDashboard(){
-document.getElementById("thetaDisplay").innerText = theta.toFixed(2);
-document.getElementById("seDisplay").innerText = standardError.toFixed(2);
-document.getElementById("qCount").innerText = questionCount;
+document.getElementById("thetaDisplay").innerText=theta.toFixed(2);
+document.getElementById("seDisplay").innerText=standardError.toFixed(2);
+document.getElementById("qCount").innerText=questionCount;
 }
-
-/* ======================
-   END TEST
-====================== */
 
 function endAssessment(){
 
-let correctCount = resultsLog.filter(r=>r.correct===1).length;
-let accuracy = resultsLog.length ? 
-Math.round((correctCount/resultsLog.length)*100) : 0;
+let correctCount=resultsLog.filter(r=>r.correct===1).length;
+let accuracy=resultsLog.length?
+Math.round((correctCount/resultsLog.length)*100):0;
 
-document.getElementById("questionBox").innerHTML =
-"<h2>Assessment Complete</h2>" +
-"<p>Final Ability (θ): " + theta.toFixed(2) + "</p>" +
-"<p>Standard Error: " + standardError.toFixed(2) + "</p>" +
-"<p>Accuracy: " + accuracy + "%</p>" +
-"<button onclick='downloadResults()'>📥 Download My Results</button>";
-
+document.getElementById("card").innerHTML=
+"<h2>Assessment Complete</h2>"+
+"<p>Final Ability (θ): "+theta.toFixed(2)+"</p>"+
+"<p>Standard Error: "+standardError.toFixed(2)+"</p>"+
+"<p>Accuracy: "+accuracy+"%</p>"+
+"<button onclick='downloadResults()'>📥 Download Results</button>";
 }
-
-/* ======================
-   CSV EXPORT
-====================== */
 
 function downloadResults(){
 
-let csv = "SHSAT Adaptive Assessment Results\n";
-csv += "Final Ability (Theta)," + theta.toFixed(2) + "\n";
-csv += "Standard Error," + standardError.toFixed(2) + "\n";
-csv += "Total Questions," + resultsLog.length + "\n\n";
-csv += "Skill,Difficulty,Correct\n";
+let csv="SHSAT Adaptive Results\n";
+csv+="Final Ability,"+theta.toFixed(2)+"\n";
+csv+="Standard Error,"+standardError.toFixed(2)+"\n";
+csv+="Total Questions,"+resultsLog.length+"\n\n";
+csv+="Skill,Difficulty,Correct\n";
 
 resultsLog.forEach(r=>{
-csv += r.skill + "," + r.difficulty + "," + (r.correct?"Yes":"No") + "\n";
+csv+=r.skill+","+r.difficulty+","+(r.correct?"Yes":"No")+"\n";
 });
 
-let blob = new Blob([csv], { type: "text/csv" });
-let url = URL.createObjectURL(blob);
-
-let a = document.createElement("a");
-a.href = url;
-a.download = "SHSAT_Adaptive_Results.csv";
+let blob=new Blob([csv],{type:"text/csv"});
+let url=URL.createObjectURL(blob);
+let a=document.createElement("a");
+a.href=url;
+a.download="SHSAT_Adaptive_Results.csv";
 document.body.appendChild(a);
 a.click();
 document.body.removeChild(a);
-
 URL.revokeObjectURL(url);
-
 }
 
-/* ======================
-   BUTTON EVENT
-====================== */
+document.getElementById("nextBtn").addEventListener("click",loadQuestion);
 
-document.getElementById("nextBtn").addEventListener("click", loadQuestion);
-
-/* START */
 loadQuestion();
 
 </script>
