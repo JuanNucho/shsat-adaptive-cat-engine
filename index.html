@@ -1,0 +1,177 @@
+<script>
+
+let theta = 0;
+let standardError = 1;
+let questionCount = 0;
+let maxQuestions = 10;
+let learningRate = 0.4;
+let asked = [];
+let resultsLog = [];
+
+const questionBank = [
+{
+skill:"Main Idea",
+a:1.2,
+b:-1,
+question:"The passage lists several benefits of exercise. What is the main idea?",
+choices:["Exercise is difficult","Exercise has many benefits","Exercise is boring","Exercise is optional"],
+correct:1
+},
+{
+skill:"Evidence",
+a:1.5,
+b:0,
+question:"Which detail best supports the claim about sleep improving memory?",
+choices:["Students like sleep","Studies show improved recall","Sleep feels relaxing","Schools start early"],
+correct:1
+},
+{
+skill:"Main Idea",
+a:1.8,
+b:1,
+question:"The author evaluates economic tradeoffs and environmental risk. What is the central argument?",
+choices:["Growth is best","Balance requires tradeoffs","Environment irrelevant","Policies fail"],
+correct:1
+},
+{
+skill:"Evidence",
+a:2.0,
+b:2,
+question:"Which quotation most strongly supports long-term impact?",
+choices:[
+"Policy matters",
+"Data shows 30% reduction over 10 years",
+"People support policy",
+"Climate change is real"
+],
+correct:1
+}
+];
+
+function logistic(theta, a, b){
+return 1 / (1 + Math.exp(-a * (theta - b)));
+}
+
+function updateTheta(response, a, b){
+let p = logistic(theta, a, b);
+let gradient = a * (response - p);
+theta += learningRate * gradient;
+standardError = Math.max(0.2, 1 / Math.sqrt(questionCount+1));
+}
+
+function selectQuestion(){
+let sorted = questionBank
+.filter(q => !asked.includes(q))
+.sort((a,b)=>Math.abs(a.b - theta) - Math.abs(b.b - theta));
+return sorted[0];
+}
+
+function loadQuestion(){
+
+if(questionCount >= maxQuestions){
+endAssessment();
+return;
+}
+
+let q = selectQuestion();
+currentQuestion = q;
+asked.push(q);
+
+document.getElementById("skillLabel").innerText =
+"Skill: "+q.skill+" | Difficulty (b): "+q.b;
+
+document.getElementById("questionText").innerText = q.question;
+
+let choicesDiv = document.getElementById("choices");
+choicesDiv.innerHTML="";
+
+q.choices.forEach((choice,index)=>{
+let div=document.createElement("div");
+div.className="choice";
+div.innerText=choice;
+
+div.onclick=()=>{
+questionCount++;
+let correct = (index===q.correct)?1:0;
+
+if(correct){
+div.classList.add("correct");
+}else{
+div.classList.add("incorrect");
+}
+
+updateTheta(correct, q.a, q.b);
+
+resultsLog.push({
+skill: q.skill,
+difficulty: q.b,
+response: correct
+});
+
+updateDashboard();
+};
+
+choicesDiv.appendChild(div);
+});
+}
+
+function updateDashboard(){
+document.getElementById("thetaDisplay").innerText = theta.toFixed(2);
+document.getElementById("seDisplay").innerText = standardError.toFixed(2);
+document.getElementById("qCount").innerText = questionCount;
+}
+
+function nextQuestion(){
+loadQuestion();
+}
+
+function endAssessment(){
+
+let accuracy = Math.round(
+(resultsLog.filter(r=>r.response===1).length / resultsLog.length)*100
+);
+
+document.getElementById("questionBox").innerHTML =
+"<h2>Assessment Complete</h2>" +
+"<p>Final Ability Estimate: "+theta.toFixed(2)+"</p>" +
+"<p>Standard Error: "+standardError.toFixed(2)+"</p>" +
+"<p>Accuracy: "+accuracy+"%</p>" +
+"<button onclick='downloadResults()'>📥 Download My Results</button>";
+}
+
+function downloadResults(){
+
+let date = new Date().toLocaleString();
+
+let csv = "SHSAT Adaptive Assessment Results\n";
+csv += "Date,"+date+"\n";
+csv += "Final Ability (Theta),"+theta.toFixed(2)+"\n";
+csv += "Standard Error,"+standardError.toFixed(2)+"\n";
+csv += "Total Questions,"+resultsLog.length+"\n";
+
+let correctCount = resultsLog.filter(r=>r.response===1).length;
+csv += "Overall Accuracy,"+
+Math.round((correctCount/resultsLog.length)*100)+"%\n\n";
+
+csv += "Question Log\n";
+csv += "Skill,Difficulty,Correct\n";
+
+resultsLog.forEach(r=>{
+csv += r.skill+","+r.difficulty+","+
+(r.response===1?"Yes":"No")+"\n";
+});
+
+let blob = new Blob([csv], { type: "text/csv" });
+let url = URL.createObjectURL(blob);
+
+let a = document.createElement("a");
+a.href = url;
+a.download = "SHSAT_Adaptive_Results.csv";
+a.click();
+
+URL.revokeObjectURL(url);
+}
+
+loadQuestion();
+
+</script>
